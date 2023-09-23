@@ -46,15 +46,21 @@ RedHat CentOS系列的
 
 把路径加载到本项目处，输入
 
-> pip install -r requirements.txt
+```shell
+pip install -r requirements.txt
+```
 
 来安装依赖，反正就两个库，你直接安装库也可以，直接打开控制台然后输入
 
-> pip install requests
+```shell
+pip install requests
+```
 
 和
 
-> pip install EbookLib
+```shell
+pip install EbookLib
+```
 
 不出意外然后你就安装好依赖了，如果出现了问题比如下载的太慢啊，下载中断啊，那要么你挂梯子，要么你换源网上都搜得到的，搜pip换源，或者你直接点我这个链接去  
 [pip 换源](https://zhuanlan.zhihu.com/p/551940762)
@@ -63,11 +69,15 @@ RedHat CentOS系列的
 就可以运行了，如果你是mac或者是linux，那就用shell脚本，也就是这个 `linux_and_mac_start.sh`
 如果都不想，要自己运行，那windows用户就打开cmd加载有python脚本的这一文件夹下然后输入
 
-> python novel_spider.py
+```shell
+python novel_spider.py
+```
 
 如果你是mac或者linux，同样用对应的控制台加载到对应的文件夹然后输入
 
-> python3 novel_spider.py
+```shell
+python3 novel_spider.py
+```
 
 ### 数据填写
 
