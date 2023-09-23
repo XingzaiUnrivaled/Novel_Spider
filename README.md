@@ -22,17 +22,22 @@
 
 MacOS 指令(前提是你装了包管理器，比如brew之类的，我印象里Mac自带来着的)
 
-> brew install python3
+```shell
+brew install python3
+```
 
 如果你是linux的话，(话说都用linux了能不会装python吗？一般都自带来着的)
 
 Ubuntu系列的
 
-> sudo apt install python3
-
+```shell
+sudo apt install python3
+```
 RedHat CentOS系列的
 
-> sudo yum install python3
+```shell
+sudo yum install python3
+```
 
 安装的时候按照以下情况来
 
