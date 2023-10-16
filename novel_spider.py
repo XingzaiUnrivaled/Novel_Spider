@@ -1,6 +1,7 @@
 import time
 from ebooklib import epub
 import requests
+import tqdm
 import re
 import os
 
@@ -12,7 +13,7 @@ def get_novel(bk_id, write_type=1):
     length = len(re.findall("<dd><a href =\"/book/" + str(bk_id) + "/.*</dd>", text))
     novel_name = re.findall(">.*</h1>", text)[0][1:-5]
     author_name = re.findall("作者[：:]\\w*", text)[0][3:]
-    print(f"本小说为{novel_name},总共有{length}个章节")
+    print(f"本小说为《{novel_name}》,总共有{length}个章节")
     if write_type == 1:
         print("开始下载txt多文件格式")
         store_content(novel_name, url, length, write_type)
@@ -35,7 +36,7 @@ def get_novel(bk_id, write_type=1):
         epub.write_epub("《" + novel_name + "》.epub", book)
         print('EPUB文件生成成功！')
     else:
-        print("由于选择的类型并不是1或者2，所以不下载小说")
+        print("由于选择的类型并不是1~3，所以不下载小说")
 
 
 # 获得内容与标题
@@ -57,19 +58,20 @@ def store_content(package_name, url, length, t, book=None):
     end = length + 1
     i = 1
     spine = []
+    # v1.0.2
+    tqdm_tqdm = tqdm.tqdm(range(end - i), desc="下载进度", colour="#f0f0f0", unit="章", ncols=60)
     while i < end:
         url_ = url + "/" + str(i) + ".html"
         try:
             li = get_result_and_title(url_)
-        except Exception as exception:
-            print(exception)
+        except:
             continue
         result = li[0]
         title = li[1]
         # v1.0.1 更新，去除/:*?"<>|\，替换成其他可以显示的字符
         title = replace_special_character(title)
         epub_result = li[2]
-        print(f"当前为第{i}章")
+        # print(f"当前为第{i}章")
         if t == 1:
             filename = package_name + "/" + title + ".txt"
             write_file(filename, result, title)
@@ -81,6 +83,7 @@ def store_content(package_name, url, length, t, book=None):
             book.add_item(chapter)
             book.toc.append(chapter)
             spine.append(chapter)
+        tqdm_tqdm.update()
         i += 1
     print(f"小说{package_name}下载完毕")
     return spine
