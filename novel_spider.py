@@ -33,7 +33,7 @@ def get_novel(bk_id, write_type=1):
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
         book.spine = spine
-        epub.write_epub("《" + novel_name + "》.epub", book)
+        epub.write_epub("epub/《" + novel_name + "》.epub", book)
         print('EPUB文件生成成功！')
     else:
         print("由于选择的类型并不是1~3，所以不下载小说")
@@ -72,11 +72,12 @@ def store_content(package_name, url, length, t, book=None):
         title = replace_special_character(title)
         epub_result = li[2]
         # print(f"当前为第{i}章")
+        # v1.0.3 更新路径
         if t == 1:
-            filename = package_name + "/" + title + ".txt"
+            filename = "multi txt/"+package_name + "/" + title + ".txt"
             write_file(filename, result, title)
         elif t == 2:
-            write_in_one_file("《" + package_name + "》.txt", result, title)
+            write_in_one_file("single txt/《" + package_name + "》.txt", result, title)
         elif t == 3:
             chapter = epub.EpubHtml(title=title, file_name=title + '.xhtml',
                                     content="<h1>" + title + "</h1>" + epub_result)
