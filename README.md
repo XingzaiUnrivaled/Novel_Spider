@@ -20,7 +20,7 @@
 
 [MacOS 3.11.5 通用版](https://www.python.org/ftp/python/3.11.5/python-3.11.5-macos11.pkg)
 
-MacOS 指令(前提是你装了包管理器，比如brew之类的，我印象里Mac自带来着的)
+MacOS 指令(前提是你装了包管理器，比如brew之类的，我印象里Mac自带python来着的)
 
 ```shell
 brew install python3
