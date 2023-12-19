@@ -52,6 +52,7 @@ def get_novel(bk_id, write_type=1):
     url = param_list["url"]
     length = param_list["length"]
     author_name = param_list["author_name"]
+    cover = param_list['cover']
 
     if write_type == 1:
         os.makedirs("multi txt", exist_ok=True)
@@ -71,6 +72,7 @@ def get_novel(bk_id, write_type=1):
         book.set_title(novel_name)
         book.set_language('zh')
         book.add_author(author_name)
+        book.set_cover(file_name="cover.jpg",content=cover)
         spine = store_content(novel_name, url, length, write_type, book=book, thread_count=thread_count_global)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
@@ -88,10 +90,14 @@ def get_book_name(bk_id, print_c=True):
     length = len(re.findall("<dd><a href =\"/book/" + str(bk_id) + "/.*</dd>", text))
     novel_name = re.findall(">.*</h1>", text)[0][1:-5]
     author_name = re.findall("作者[：:]\\w*", text)[0][3:]
+    cover_url = re.findall("src=\"\\S+", re.findall("<img.*>", text)[0])[0][5:-1]
+    content = requests.get(url=cover_url).content
+    # with open("1.jpg", 'wb') as f:
+    #     f.write(content)
 
     if print_c:
         print(f"本小说为《{novel_name}》,总共有{length}个章节")
-    return {"url": url, "length": length, "novel_name": novel_name, "author_name": author_name}
+    return {"url": url, "length": length, "novel_name": novel_name, "author_name": author_name, "cover": content}
 
 
 # 获得内容与标题
@@ -133,6 +139,7 @@ def store_content(package_name, url, length, t, book=None, thread_count=10):
         j.start()
     while flag != thread_count:
         time.sleep(5)
+    tqdm_tqdm.close()
     for n in range(1, end):
         li = chapters[n]
         result = li[0]
