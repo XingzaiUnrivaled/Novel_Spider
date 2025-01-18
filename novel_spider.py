@@ -10,6 +10,13 @@ import traceback
 # 多线程个数（速度倍数，默认为十倍）
 thread_count_global = 10
 
+# 填一个头
+header = {
+    "Accept": "*/*",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 "
+                  "Safari/537.36"
+}
+
 
 # v1.0.4 加入多线程
 class SpiderThread(threading.Thread):
@@ -72,7 +79,7 @@ def get_novel(bk_id, write_type=1):
         book.set_title(novel_name)
         book.set_language('zh')
         book.add_author(author_name)
-        book.set_cover(file_name="cover.jpg",content=cover)
+        book.set_cover(file_name="cover.jpg", content=cover)
         spine = store_content(novel_name, url, length, write_type, book=book, thread_count=thread_count_global)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
@@ -85,13 +92,13 @@ def get_novel(bk_id, write_type=1):
 
 # v1.0.4 获得书名
 def get_book_name(bk_id, print_c=True):
-    url = "https://www.bqg70.com/book/" + str(bk_id)
-    text = requests.get(url=url).text
+    url = "https://www.biqu70.cc/book/" + str(bk_id)
+    text = requests.get(url=url, headers=header).text
     length = len(re.findall("<dd><a href =\"/book/" + str(bk_id) + "/.*</dd>", text))
     novel_name = re.findall(">.*</h1>", text)[0][1:-5]
     author_name = re.findall("作者[：:]\\w*", text)[0][3:]
     cover_url = re.findall("src=\"\\S+", re.findall("<img.*>", text)[0])[0][5:-1]
-    content = requests.get(url=cover_url).content
+    content = requests.get(url=cover_url, headers=header).content
     # with open("1.jpg", 'wb') as f:
     #     f.write(content)
 
@@ -104,7 +111,7 @@ def get_book_name(bk_id, print_c=True):
 def get_result_and_title(url):
     while True:
         try:
-            text = requests.get(url=url).text
+            text = requests.get(url=url, headers=header).text
             pattern = ">.*<br ?/?>"
             pattern2 = ">.*</h1>"
             content = re.findall(pattern, text)[0]
@@ -115,7 +122,7 @@ def get_result_and_title(url):
             title = title[1:-5]
             return [result, title, epub_result]
         except:
-            # traceback.print_exc()
+            traceback.print_exc()
             continue
 
 
