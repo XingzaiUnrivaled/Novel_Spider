@@ -1,28 +1,37 @@
 import threading
-import time
+import traceback
 from ebooklib import epub
 import requests
 import tqdm
 import re
 import os
-import traceback
 
 # 多线程个数（速度倍数，默认为十倍）
 thread_count_global = 10
+# 可以修改为当前有用的url
+global_url = "www.bqg7777.xyz"
 
+# 存储章节内容初始化为字典，使得可以使用关键字当下标存储
+chapters = {}
+prefix_url = "https://"
+api_url = "https://apibi.cc/api"
+tqdm_tqdm: tqdm.tqdm
 # 填一个头
 header = {
     "Accept": "*/*",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 "
-                  "Safari/537.36"
+    "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 "
+        "Safari/537.36"
 }
 
 
 # v1.0.4 加入多线程
 class SpiderThread(threading.Thread):
-    def __init__(self, url, end, package_name, choice, thread_id, count):
+    """线程类，根据线程数为步长进行跳跃增长"""
+
+    def __init__(self, bk_id, end, package_name, choice, thread_id, count):
         super().__init__()
-        self.url = url
+        self.bk_id = bk_id
         self.end = end
         self.package_name = package_name
         self.t = choice
@@ -30,46 +39,53 @@ class SpiderThread(threading.Thread):
         self.thread_count = count
 
     def run(self):
-        global flag
         global chapters
         global tqdm_tqdm
         for i in range(self.thread_id, self.end, self.thread_count):
-            url_ = self.url + "/" + str(i) + ".html"
-            li = get_result_and_title(url_)
-            result = li[0]
-            title = li[1]
+            content_info = get_result_and_title(bk_id=self.bk_id, chapter_id=i)
+            result = content_info['txt']
+            title = content_info['chaptername']
             # v1.0.1 更新，去除/:*?"<>|\，替换成其他可以显示的字符
             title_replace = replace_special_character(title)
             # v1.0.3 更新路径
-            if self.t == 1:
+            if self.t == "1":
                 filename = "multi txt/" + self.package_name + "/" + title + ".txt"
                 write_file(filename, result, title_replace)
             else:
                 # print(abc)
-                chapters[i] = li
+                chapters[i] = content_info
             # print(f"当前为第{i}章")
             tqdm_tqdm.update()
-        flag += 1
 
 
-# 获得小说
-def get_novel(bk_id, write_type=1):
-    param_list = get_book_name(bk_id, False)
-    novel_name = param_list["novel_name"]
-    url = param_list["url"]
-    length = param_list["length"]
-    author_name = param_list["author_name"]
-    cover = param_list['cover']
+def get_epub_format(chapter):
+    return str(chapter['txt']).replace("\n", "<br>")
 
-    if write_type == 1:
+
+def get_book_list(bk_id):
+    """获得章节列表"""
+    url = api_url + "/booklist"
+    booklist = requests.get(url=url, params={"id": bk_id}, headers=header).json()
+    return booklist['list']
+
+
+def get_novel(bk_id, bk, write_type="1"):
+    """获取小说，根据写入方式进行写入"""
+    get_book_list(bk_id)
+    novel_name = bk["title"]
+    length = int(bk["lastchapterid"])
+    author_name = bk["author"]
+    cover = requests.get(url=prefix_url + global_url + f"/bookimg/{int(bk_id) // 1000}/{bk_id}.jpg").content
+
+    if write_type == "1":
         os.makedirs("multi txt", exist_ok=True)
         print("开始下载txt多文件格式")
-        store_content(novel_name, url, length, write_type, thread_count=thread_count_global)
-    elif write_type == 2:
+        store_content(bk_id, novel_name, length, write_type, thread_count=thread_count_global)
+    elif write_type == "2":
         os.makedirs("single txt", exist_ok=True)
         print("开始下载txt单文件格式")
-        store_content(novel_name, url, length, write_type, thread_count=thread_count_global)
-    elif write_type == 3:
+        store_content(bk_id, novel_name, length, write_type, thread_count=thread_count_global)
+    elif write_type == "3":
         print("开始下载epub格式")
         os.makedirs("epub", exist_ok=True)
         # 创建一个EPUB电子书对象
@@ -80,7 +96,7 @@ def get_novel(bk_id, write_type=1):
         book.set_language('zh')
         book.add_author(author_name)
         book.set_cover(file_name="cover.jpg", content=cover)
-        spine = store_content(novel_name, url, length, write_type, book=book, thread_count=thread_count_global)
+        spine = store_content(bk_id, novel_name, length, write_type, book=book, thread_count=thread_count_global)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
         book.spine = spine
@@ -90,74 +106,53 @@ def get_novel(bk_id, write_type=1):
         print("由于选择的类型并不是1~3，所以不下载小说")
 
 
-# v1.0.4 获得书名
-def get_book_name(bk_id, print_c=True):
-    url = "https://www.biqu70.cc/book/" + str(bk_id)
-    text = requests.get(url=url, headers=header).text
-    length = len(re.findall("<dd><a href =\"/book/" + str(bk_id) + "/.*</dd>", text))
-    novel_name = re.findall(">.*</h1>", text)[0][1:-5]
-    author_name = re.findall("作者[：:]\\w*", text)[0][3:]
-    cover_url = re.findall("src=\"\\S+", re.findall("<img.*>", text)[0])[0][5:-1]
-    content = requests.get(url=cover_url, headers=header).content
-    # with open("1.jpg", 'wb') as f:
-    #     f.write(content)
-
-    if print_c:
-        print(f"本小说为《{novel_name}》,总共有{length}个章节")
-    return {"url": url, "length": length, "novel_name": novel_name, "author_name": author_name, "cover": content}
+def get_book_name(bk_id):
+    """获取书名"""
+    url = api_url + "/book"
+    book = requests.get(url=url, headers=header, params={"id": bk_id}).json()
+    print(f"本小说为《{book['title']}》,总共有{book['lastchapterid']}个章节")
+    return book
 
 
 # 获得内容与标题
-def get_result_and_title(url):
+def get_result_and_title(bk_id, chapter_id):
+    """获取内容"""
     while True:
         try:
-            text = requests.get(url=url, headers=header).text
-            pattern = ">.*<br ?/?>"
-            pattern2 = ">.*</h1>"
-            content = re.findall(pattern, text)[0]
-            title = re.findall(pattern2, text)[0]
-            li = content.replace("<br /><br />", "\n")[1:].splitlines()[:-1]
-            epub_result = "<br/>".join(li)
-            result = "\n".join(li)
-            title = title[1:-5]
-            return [result, title, epub_result]
-        except:
-            traceback.print_exc()
+            chapter_info = requests.get(url=api_url + "/chapter", headers=header,
+                                        params={"id": bk_id, "chapterid": chapter_id}).json()
+            return chapter_info
+        except Exception as e:
+            print("无视当前错误:", e)
             continue
 
 
-# 写入内容
-def store_content(package_name, url, length, t, book=None, thread_count=10):
+def store_content(bk_id, package_name, length, t, book=None, thread_count=10):
     end = length + 1
-    global flag
-    global chapters
     global tqdm_tqdm
-    flag = 0
     spine = []
-    chapters = {}
     # v1.0.2
     tqdm_tqdm = None
     tqdm_tqdm = tqdm.tqdm(range(length), desc="下载进度", colour="#f0f0f0", unit="章", ncols=60)
 
     thread_collection = []
     for j in range(thread_count):
-        thread_collection.append(SpiderThread(url, end, package_name, t, j + 1, thread_count))
+        thread_collection.append(SpiderThread(bk_id, end, package_name, t, j + 1, thread_count))
     for j in thread_collection:
         j.start()
-    while flag != thread_count:
-        time.sleep(5)
+    for j in thread_collection:
+        j.join()
     tqdm_tqdm.close()
     for n in range(1, end):
-        li = chapters[n]
-        result = li[0]
-        title = li[1]
-        epub_result = li[2]
+        content_info = chapters[n]
+        result = content_info['txt']
+        title = content_info['chaptername']
+        epub_result = get_epub_format(content_info)
         if t == 2:
             write_in_one_file("single txt/《" + package_name + "》.txt", result, title)
         elif t == 3:
             chapter = epub.EpubHtml(title=title, file_name=title + '.xhtml',
                                     content="<h1>" + title + "</h1>" + epub_result)
-
             book.add_item(chapter)
             book.toc.append(chapter)
             spine.append(chapter)
@@ -168,6 +163,7 @@ def store_content(package_name, url, length, t, book=None, thread_count=10):
 
 # v1.0.1添加的方法
 def replace_special_character(title):
+    """替换特殊字符方法 特殊字符在多文件写入的时候可能会有异常"""
     search = re.findall(r'[/:*?"<>|\\]', title)
     if len(search) > 0:
         title = title.replace("*", "星")
@@ -183,12 +179,14 @@ def replace_special_character(title):
 
 
 def write_in_one_file(filename, content, title):
+    """单文件写入"""
     with open(filename, 'at', encoding='utf8') as f:
         f.write("\t\t\t\t\t\t" + title + "\n")
         f.write(content + "\n")
 
 
 def write_file(filename, content, title):
+    """多文件写入"""
     with open(filename, "wt", encoding='utf8') as f:
         f.write(title + "\n\n")
         f.write(content)
@@ -196,31 +194,46 @@ def write_file(filename, content, title):
 
 # v1.0.1把主方法内部封装成main函数，然后让程序运行main()
 def main():
+    """主函数调用"""
+    global global_url
+    print("郑重声明，此项目仅供学习、研究，请勿用于商业用途，请勿用于非法用途")
     while True:
         try:
-            choice = int(input("输入1进行书本下载\n输入2退出\n"))
-
-            if choice == 1:
-                book_id = int(input("输入id号\n"))
-                # v1.0.4 新增输入id后查询书本和章节数量
-                get_book_name(book_id)
-                type_id = int(
-                    input("选择类型：1为下载多个txt文件，2为下载单个txt文件，3为epub格式文件，-1为退出本级菜单\n"))
-                if type_id == -1:
+            choice = input("输入1进行书本下载\n输入2退出\n").strip()
+            if choice == "1":
+                print(f"请确认当前url（链接）是否正确 {global_url}")
+                print("不正确请按1，正确请按2")
+                url_id = input("请输入链接确认数字：").strip()
+                if url_id == "1":
+                    global_url = input("请输入正确的url：").strip()
+                elif url_id == "2":
+                    pass
+                else:
+                    print("请输入正确的数字")
                     continue
-                get_novel(book_id, write_type=type_id)
-            elif choice == 2:
+                book_id = input("输入id号\n").strip()
+                if not book_id.isnumeric():
+                    print("id号是数字，请输入数字")
+                    continue
+                # v1.0.4 新增输入id后查询书本和章节数量
+                book = get_book_name(book_id)
+                type_id = input(
+                    "选择类型：1为下载多个txt文件，2为下载单个txt文件，3为epub格式文件，-1为退出本级菜单\n").strip()
+                if type_id == "-1":
+                    continue
+                if type_id not in ["1", "2", "3"]:
+                    print("请输入正确的数字")
+                    continue
+                get_novel(bk_id=book_id, bk=book, write_type=type_id)
+            elif choice == "2":
                 break
-        except:
+            else:
+                print("请输入正确的数字")
+        except Exception as e:
             traceback.print_exc()
-            print("不许输入除数字之外的其他字母文字等等")
-    print("退出程序，三秒后自动关闭")
-    print("三")
-    time.sleep(1)
-    print("二")
-    time.sleep(1)
-    print("一")
-    time.sleep(1)
+            print(e)
+            print("上述为报错信息请联系作者")
+    print("退出程序")
 
 
 if __name__ == '__main__':
