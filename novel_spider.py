@@ -16,6 +16,7 @@ chapters = {}
 prefix_url = "https://"
 api_url = "https://apibi.cc/api"
 tqdm_tqdm: tqdm.tqdm
+multi_flag = False
 # 填一个头
 header = {
     "Accept": "*/*",
@@ -39,18 +40,19 @@ class SpiderThread(threading.Thread):
         self.thread_count = count
 
     def run(self):
-        global chapters
-        global tqdm_tqdm
+        global chapters, tqdm_tqdm, multi_flag
         for i in range(self.thread_id, self.end, self.thread_count):
             content_info = get_result_and_title(bk_id=self.bk_id, chapter_id=i)
             result = content_info['txt']
             title = content_info['chaptername']
             # v1.0.1 更新，去除/:*?"<>|\，替换成其他可以显示的字符
             title_replace = replace_special_character(title)
+            content_info['chaptername'] = title_replace
             # v1.0.3 更新路径
             if self.t == "1":
-                filename = "multi txt/" + self.package_name + "/" + title + ".txt"
+                filename = "multi txt/《" + self.package_name + "》/" + title + ".txt"
                 write_file(filename, result, title_replace)
+                multi_flag = True
             else:
                 # print(abc)
                 chapters[i] = content_info
@@ -78,7 +80,7 @@ def get_novel(bk_id, bk, write_type="1"):
     cover = requests.get(url=prefix_url + global_url + f"/bookimg/{int(bk_id) // 1000}/{bk_id}.jpg").content
 
     if write_type == "1":
-        os.makedirs("multi txt", exist_ok=True)
+        os.makedirs(f"multi txt/《{bk['title']}》", exist_ok=True)
         print("开始下载txt多文件格式")
         store_content(bk_id, novel_name, length, write_type, thread_count=thread_count_global)
     elif write_type == "2":
@@ -129,7 +131,7 @@ def get_result_and_title(bk_id, chapter_id):
 
 def store_content(bk_id, package_name, length, t, book=None, thread_count=10):
     end = length + 1
-    global tqdm_tqdm
+    global tqdm_tqdm, multi_flag
     spine = []
     # v1.0.2
     tqdm_tqdm = None
@@ -143,19 +145,20 @@ def store_content(bk_id, package_name, length, t, book=None, thread_count=10):
     for j in thread_collection:
         j.join()
     tqdm_tqdm.close()
-    for n in range(1, end):
-        content_info = chapters[n]
-        result = content_info['txt']
-        title = content_info['chaptername']
-        epub_result = get_epub_format(content_info)
-        if t == 2:
-            write_in_one_file("single txt/《" + package_name + "》.txt", result, title)
-        elif t == 3:
-            chapter = epub.EpubHtml(title=title, file_name=title + '.xhtml',
-                                    content="<h1>" + title + "</h1>" + epub_result)
-            book.add_item(chapter)
-            book.toc.append(chapter)
-            spine.append(chapter)
+    if not multi_flag:
+        for n in range(1, end):
+            content_info = chapters[n]
+            result = content_info['txt']
+            title = content_info['chaptername']
+            epub_result = get_epub_format(content_info)
+            if t == "2":
+                write_in_one_file("single txt/《" + package_name + "》.txt", result, title)
+            elif t == "3":
+                chapter = epub.EpubHtml(title=title, file_name=title + '.xhtml',
+                                        content="<h1>" + title + "</h1>" + epub_result)
+                book.add_item(chapter)
+                book.toc.append(chapter)
+                spine.append(chapter)
     print()
     print(f"小说{package_name}下载完毕")
     return spine
